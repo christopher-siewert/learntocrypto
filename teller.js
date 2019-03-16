@@ -15,6 +15,9 @@ switch (process.argv[2]) {
     case 'deposit':
 	client.end({cmd: 'deposit', amount: process.argv[3]});
     	break;
+    case 'withdraw':
+	client.end({cmd: 'withdraw', amount: process.argv[3]});
+	break;
     default:
 	break;		
 }
