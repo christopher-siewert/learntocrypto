@@ -1,13 +1,9 @@
 // bank.js
 var jsonStream = require('duplex-json-stream')
 var net = require('net')
+const fs = require('fs')
 
-var log = [
-    {cmd: 'deposit', amount: 10},
-    {cmd: 'deposit', amount: 20},
-    {cmd: 'deposit', amount: 30},
-    {cmd: 'withdraw', amount: 5}
-];
+var log = JSON.parse(fs.readFileSync("log.txt")); 
 
 var getBalance = () => {
     return log.reduce((sum, entry) => {
@@ -41,7 +37,9 @@ var server = net.createServer(function (socket) {
                 }
                 break;
         }
+        fs.writeFileSync("log.txt", JSON.stringify(log, null, 4))
     })
 })
 
-server.listen(3876)
+server.listen(3876);
+
