@@ -2,38 +2,24 @@
 const jsonStream = require('duplex-json-stream')
 const net = require('net')
 const fs = require('fs')
-const sodium = require('sodium-native');
+const sodium = require('sodium-native')
 
 // genesis hash to use for hash chain
-const genesisHash = Buffer.alloc(32).toString('hex');
+const genesisHash = Buffer.alloc(32).toString('hex')
 
-// Try loading a public/private key pair from keys.txt
-// All variables in try catch are declared var so they are global
-try {
+// Load asymmetric keys from file or create new keys
+let {publicKey, secretKey} = keyPair()
 
-    var keyPair = JSON.parse(fs.readFileSync('keys.txt'));
-    var publicKey = Buffer.from(keyPair.publicKey, 'hex');
-    var secretKey = Buffer.from(keyPair.secretKey, 'hex');
+// Load symmetric key from file or create new
+let key = symKey()
 
-} catch { // If keys.txt doesn't exist, create a new key pair and store to file
-    
-    var publicKey = Buffer.alloc(sodium.crypto_sign_PUBLICKEYBYTES);
-    var secretKey = Buffer.alloc(sodium.crypto_sign_SECRETKEYBYTES);
-    sodium.crypto_sign_keypair(publicKey, secretKey);
-    var keyPair = {
-        secretKey: secretKey.toString('hex'), 
-        publicKey: publicKey.toString('hex')
-    }
-    fs.writeFileSync('keys.txt', JSON.stringify(keyPair, null, 2))
-}
-
-// Read transaction history
-let log = JSON.parse(fs.readFileSync("log.txt")); 
+// Load log from file and decyrpt
+let log = decryptLog()
 
 // If the hash chain isn't correct exit immediately
 if (!verifyLog()) {
-    console.log("The transaction log has been modified.");
-    process.exit(1);
+    console.log("The transaction log has been modified.")
+    process.exit(1)
 }
 
 // Server code
@@ -43,33 +29,34 @@ let server = net.createServer(function (socket) {
         console.log('Bank received:', msg)
         switch (msg.cmd) {
             case 'balance':
-                socket.write({cmd: 'balance', balance: getBalance()});
-                break;
+                socket.write({cmd: 'balance', balance: getBalance()})
+                break
             case 'deposit':
-                appendToLog(msg);
-                socket.write(msg);
-                break;
+                appendToLog(msg)
+                socket.write(msg)
+                break
             case 'withdraw':
                 if (getBalance() >= msg.amount) {
-                    appendToLog(msg);
-                    socket.write(msg);
+                    appendToLog(msg)
+                    socket.write(msg)
                 } else {
-                    socket.write("Insufficient funds.");
+                    socket.write("Insufficient funds.")
                 }
-                break;
+                break
         }
-        fs.writeFileSync("log.txt", JSON.stringify(log, null, 2))
+        // Takes current log variable, encrypts and writes to file
+        encryptAndWriteLog()
     })
 })
 
-server.listen(3876);
+server.listen(3876)
 
 // Returns the hash of an input in hex
 function hashToHex(string) {
-    let buf1 = Buffer.from(string);
-    let buf2 = Buffer.alloc(sodium.crypto_generichash_BYTES);
-    sodium.crypto_generichash(buf2, buf1);
-    return buf2.toString('hex');
+    let buf1 = Buffer.from(string)
+    let buf2 = Buffer.alloc(sodium.crypto_generichash_BYTES)
+    sodium.crypto_generichash(buf2, buf1)
+    return buf2.toString('hex')
 }
 
 // Loops through transaction log and totals up balance
@@ -77,9 +64,9 @@ function getBalance() {
     return log.reduce((sum, entry) => {
         // Add all deposits and minus all withdraws 
         if (entry.value.cmd == 'deposit') {
-            return sum + parseInt(entry.value.amount);
+            return sum + parseInt(entry.value.amount)
         } else if (entry.value.cmd == 'withdraw') {
-            return sum - parseInt(entry.value.amount); 
+            return sum - parseInt(entry.value.amount) 
         }
     }, 0) // 0 at end is to set initial sum to 0
 }
@@ -88,14 +75,14 @@ function getBalance() {
 function appendToLog(entry) {
     // Set prevhash to last entry's hash unless the log is empty
     // If empty set to genesis hash
-    let prevHash = log.length ? log[log.length - 1].hash : genesisHash;
+    let prevHash = log.length ? log[log.length - 1].hash : genesisHash
     
     // Calc current chain hash
-    let currentHash = hashToHex(prevHash + JSON.stringify(entry));
+    let currentHash = hashToHex(prevHash + JSON.stringify(entry))
 
     // Sign hash using secret key
-    let message = Buffer.from(currentHash, 'hex');
-    let signature = Buffer.alloc(sodium.crypto_sign_BYTES);
+    let message = Buffer.from(currentHash, 'hex')
+    let signature = Buffer.alloc(sodium.crypto_sign_BYTES)
     sodium.crypto_sign_detached(signature, message, secretKey)
 
     // Push the entry, chained hash and signature of hash
@@ -103,7 +90,7 @@ function appendToLog(entry) {
         value: entry,
         hash: currentHash,
         signature: signature.toString('hex')
-    });
+    })
 }
 
 // Returns true if hash chain is unbroken and all sigs match
@@ -123,13 +110,102 @@ function verifyLog() {
         prevHash = log[i].hash
 
         // Buffers for sig verify
-        let message = Buffer.from(log[i].hash, 'hex');
-        let signature = Buffer.from(log[i].signature, 'hex');
+        let message = Buffer.from(log[i].hash, 'hex')
+        let signature = Buffer.from(log[i].signature, 'hex')
         
         // If signature doesn't verify set false
         if (!sodium.crypto_sign_verify_detached(signature, message, publicKey)) {
             verify = false
         }
     }
-    return verify;
+    return verify
 }
+
+function keyPair() {
+
+    // Try loading a public/private key pair from keys.txt
+    // Declared with var for function scope
+    try {
+    
+        var keyPair = JSON.parse(fs.readFileSync('keyPair.txt'))
+        var publicKey = Buffer.from(keyPair.publicKey, 'hex')
+        var secretKey = Buffer.from(keyPair.secretKey, 'hex')
+    
+    } catch { // If keys.txt doesn't exist, create a new key pair and store to file
+        
+        var publicKey = Buffer.alloc(sodium.crypto_sign_PUBLICKEYBYTES)
+        var secretKey = Buffer.alloc(sodium.crypto_sign_SECRETKEYBYTES)
+        sodium.crypto_sign_keypair(publicKey, secretKey)
+        var keyPair = {
+            secretKey: secretKey.toString('hex'), 
+            publicKey: publicKey.toString('hex')
+        }
+        fs.writeFileSync('keyPair.txt', JSON.stringify(keyPair, null, 2))
+    }
+    
+    // return object with both buffers 
+    return {publicKey, secretKey}
+}
+
+function symKey() {
+
+    // Try loading a symetric encryption key from file.
+    // Declared with var for function scope
+    try {
+        
+        var key = Buffer.from(fs.readFileSync('key.txt'), 'hex')
+    
+    } catch { // If key.txt doesn't exist, create a new sym key and store it 
+        
+        var key = Buffer.alloc(sodium.crypto_secretbox_KEYBYTES);
+        sodium.randombytes_buf(key)
+        
+        fs.writeFileSync('key.txt', key.toString('hex'))
+    }
+    return key
+}
+
+function decryptLog() {
+    
+    // try loading and decrypting from log.txt, if it fails, log = empty array
+    try {
+    
+        // Read transaction history
+        let logObject = JSON.parse(fs.readFileSync("log.txt")) 
+        
+        // Decrypt log
+        let nonce = Buffer.from(logObject.nonce, 'hex')
+        let ciphertext = Buffer.from(logObject.ciphertext, 'hex')
+        let plaintext = Buffer.alloc(ciphertext.length - sodium.crypto_secretbox_MACBYTES)
+
+        if (!sodium.crypto_secretbox_open_easy(plaintext, ciphertext, nonce, key)) {
+            console.log('Decryption of log failed!')
+            process.exit(1)
+        } else {
+            return JSON.parse(plaintext.toString())   
+        }
+    
+    } catch {
+        return [] 
+    }
+
+}
+
+function encryptAndWriteLog() {
+
+    let nonce = Buffer.alloc(sodium.crypto_secretbox_NONCEBYTES)
+    sodium.randombytes_buf(nonce)
+    let message = Buffer.from(JSON.stringify(log))
+    let ciphertext = Buffer.alloc(message.length + sodium.crypto_secretbox_MACBYTES)
+
+    sodium.crypto_secretbox_easy(ciphertext, message, nonce, key)
+    
+    let logObject = {
+        ciphertext: ciphertext.toString('hex'), 
+        nonce: nonce.toString('hex')
+    }
+    
+    fs.writeFileSync("log.txt", JSON.stringify(logObject, null, 2))
+
+}
+    
