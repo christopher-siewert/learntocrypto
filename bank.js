@@ -27,30 +27,34 @@ let server = net.createServer(function (socket) {
     socket = jsonStream(socket)
     socket.on('data', function (msg) {
         console.log('Bank received:', msg)
-        switch (msg.cmd) {
-            case 'balance':
-                socket.write({
-                    cmd: 'balance', 
-                    balance: getBalance(msg.customerId)
-                })
-                break
-            case 'deposit':
-                appendToLog(msg)
-                socket.write(msg)
-                break
-            case 'withdraw':
-                if (getBalance(msg.customerId) >= msg.amount) {
-                    appendToLog(msg)
-                    socket.write(msg)
-                } else {
-                    socket.write("Insufficient funds.")
-                }
-                break
-            case 'register':
-                break
-            default:
-                break
-        }
+        
+        // First check that the sig matches
+        if (verifySig(msg.signature,JSON.stringify(msg.entry),msg.entry.customerId)){
+            
+            // Then act based on command
+            switch (msg.entry.cmd) {
+                case 'balance':
+                    socket.write({
+                        cmd: 'balance', 
+                        balance: getBalance(msg.entry.customerId)
+                    })
+                    break
+                case 'deposit':
+                    appendToLog(msg.entry)
+                    socket.write(msg.entry)
+                    break
+                case 'withdraw':
+                    if (getBalance(msg.entry.customerId) >= msg.entry.amount) {
+                        appendToLog(msg.entry)
+                        socket.write(msg.entry)
+                    } else {
+                        socket.write("Insufficient funds.")
+                    }
+                    break
+                default:
+                    break
+            }
+        }  
         // Takes current log variable, encrypts and writes to file
         encryptAndWriteLog()
     })
@@ -220,4 +224,11 @@ function encryptAndWriteLog() {
     fs.writeFileSync("log.txt", JSON.stringify(logObject, null, 2))
 
 }
-    
+
+
+function verifySig(s, m, pK) {
+    let message = Buffer.from(m)
+    let signature = Buffer.from(s, 'hex')
+    let publicKey = Buffer.from(pK, 'hex')
+    return sodium.crypto_sign_verify_detached(signature, message, publicKey)
+}
