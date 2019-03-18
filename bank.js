@@ -78,7 +78,7 @@ server.listen(3876)
 // Returns the hash of a string in hex
 function hashToHex(string) {
     let buf1 = Buffer.from(string)
-    let buf2 = Buffer.alloc(sodium.crypto_generichash_BYTES)
+    let buf2 = sodium.sodium_malloc(sodium.crypto_generichash_BYTES)
     sodium.crypto_generichash(buf2, buf1)
     return buf2.toString('hex')
 }
@@ -122,7 +122,7 @@ function appendToLog(entry) {
 
     // Sign hash using secret key
     let message = Buffer.from(currentHash, 'hex')
-    let signature = Buffer.alloc(sodium.crypto_sign_BYTES)
+    let signature = sodium.sodium_malloc(sodium.crypto_sign_BYTES)
     sodium.crypto_sign_detached(signature, message, secretKey)
 
     // Push the entry, chained hash and signature of hash
@@ -174,8 +174,8 @@ function keyPair() {
     
     } catch { // If keys.txt doesn't exist, create a new key pair and store to file
         
-        var publicKey = Buffer.alloc(sodium.crypto_sign_PUBLICKEYBYTES)
-        var secretKey = Buffer.alloc(sodium.crypto_sign_SECRETKEYBYTES)
+        var publicKey = sodium.sodium_malloc(sodium.crypto_sign_PUBLICKEYBYTES)
+        var secretKey = sodium.sodium_malloc(sodium.crypto_sign_SECRETKEYBYTES)
         sodium.crypto_sign_keypair(publicKey, secretKey)
         var keyPair = {
             secretKey: secretKey.toString('hex'), 
@@ -198,7 +198,7 @@ function symKey() {
     
     } catch { // If key.txt doesn't exist, create a new sym key and store it 
         
-        var key = Buffer.alloc(sodium.crypto_secretbox_KEYBYTES);
+        var key = sodium.sodium_malloc(sodium.crypto_secretbox_KEYBYTES);
         sodium.randombytes_buf(key)
         
         fs.writeFileSync('key.txt', key.toString('hex'))

@@ -78,8 +78,8 @@ function keyPair(ID) {
     
     } catch { // If ID.txt doesn't exist, create a new key pair and store to file
     
-        var publicKey = Buffer.alloc(sodium.crypto_sign_PUBLICKEYBYTES)
-        var secretKey = Buffer.alloc(sodium.crypto_sign_SECRETKEYBYTES)
+        var publicKey = sodium.sodium_malloc(sodium.crypto_sign_PUBLICKEYBYTES)
+        var secretKey = sodium.sodium_malloc(sodium.crypto_sign_SECRETKEYBYTES)
         sodium.crypto_sign_keypair(publicKey, secretKey)
         var keyPair = {
             secretKey: secretKey.toString('hex'),
@@ -95,7 +95,7 @@ function keyPair(ID) {
 // takes a message string and signs it with the current secretKey
 // returns string
 function sign(m) {
-    let signature = Buffer.alloc(sodium.crypto_sign_BYTES)
+    let signature = sodium.sodium_malloc(sodium.crypto_sign_BYTES)
     let message = Buffer.from(m)
     sodium.crypto_sign_detached(signature, message, secretKey)
     return signature.toString('hex')
