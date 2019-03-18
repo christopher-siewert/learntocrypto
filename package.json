@@ -1,0 +1,25 @@
+{
+  "name": "learntocrypto",
+  "version": "1.0.0",
+  "description": "7gate homework",
+  "main": "bank.js",
+  "dependencies": {
+    "siginfo": "^1.0.2",
+    "sodium-native": "^2.3.0",
+    "duplex-json-stream": "^1.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/christopher-siewert/learntocrypto.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/christopher-siewert/learntocrypto/issues"
+  },
+  "homepage": "https://github.com/christopher-siewert/learntocrypto#readme"
+}
