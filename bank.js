@@ -29,19 +29,26 @@ let server = net.createServer(function (socket) {
         console.log('Bank received:', msg)
         switch (msg.cmd) {
             case 'balance':
-                socket.write({cmd: 'balance', balance: getBalance()})
+                socket.write({
+                    cmd: 'balance', 
+                    balance: getBalance(msg.customerId)
+                })
                 break
             case 'deposit':
                 appendToLog(msg)
                 socket.write(msg)
                 break
             case 'withdraw':
-                if (getBalance() >= msg.amount) {
+                if (getBalance(msg.customerId) >= msg.amount) {
                     appendToLog(msg)
                     socket.write(msg)
                 } else {
                     socket.write("Insufficient funds.")
                 }
+                break
+            case 'register':
+                break
+            default:
                 break
         }
         // Takes current log variable, encrypts and writes to file
@@ -59,14 +66,19 @@ function hashToHex(string) {
     return buf2.toString('hex')
 }
 
-// Loops through transaction log and totals up balance
-function getBalance() {
+// Loops through transaction log and totals up balance for one ID
+function getBalance(ID) {
     return log.reduce((sum, entry) => {
-        // Add all deposits and minus all withdraws 
-        if (entry.value.cmd == 'deposit') {
-            return sum + parseInt(entry.value.amount)
-        } else if (entry.value.cmd == 'withdraw') {
-            return sum - parseInt(entry.value.amount) 
+        // If IDs match
+        if (entry.value.customerId == ID) {
+            // Add all deposits and minus all withdraws 
+            if (entry.value.cmd == 'deposit') {
+                return sum + parseInt(entry.value.amount)
+            } else if (entry.value.cmd == 'withdraw') {
+                return sum - parseInt(entry.value.amount) 
+            }
+        } else { // If IDs don't match, don't change sum
+            return sum
         }
     }, 0) // 0 at end is to set initial sum to 0
 }
