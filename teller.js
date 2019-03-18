@@ -4,16 +4,24 @@ var net = require('net')
 var sodium = require('sodium-native')
 var fs = require('fs')
 
+let command = process.argv[2]
+let customerId = process.argv[3]
+let amount = process.argv[4]
 
 var client = jsonStream(net.connect(3876))
 
 client.on('data', function (msg) {
     console.log('Teller received:', msg)
+    
+    // msg is array, 0 is log entry and 1 is hash of last message
+    // if hash is passed
+    if (msg[1]) {
+        // saves last message hash to file depending on customerId
+        let filename = customerId + "-lastHash.txt" 
+        fs.writeFileSync(filename, JSON.stringify({hash: msg[1]})) 
+    }
 })
 
-let command = process.argv[2]
-let customerId = process.argv[3]
-let amount = process.argv[4]
 
 // User specifies a customerID, which is then used to either create
 // or look up key pair
@@ -24,19 +32,28 @@ let {publicKey, secretKey} = keyPair(customerId)
 // ID is string version of pubkey buffer
 let ID = publicKey.toString('hex')
 
+// Try to load last hash from file
+try {
+    let filename = customerId + "-lastHash.txt"
+    // var for function scope
+    var lastHash = JSON.parse(fs.readFileSync(filename)).hash
+} catch { // If there is no file, use genesis hash of zeros
+    var lastHash = Buffer.alloc(32).toString('hex')
+}
+
 // declare entry
 let entry
 
 // switch to decide entry depending on command
 switch (command) {
     case 'balance':
-        entry = {cmd: 'balance', customerId: ID}
+        entry = {cmd: 'balance', customerId: ID, lastHash}
     	break
     case 'deposit':
-	    entry = {cmd: 'deposit', amount, customerId: ID}
+	    entry = {cmd: 'deposit', amount, customerId: ID, lastHash}
     	break
     case 'withdraw':
-	    entry = {cmd: 'withdraw', amount, customerId: ID}
+	    entry = {cmd: 'withdraw', amount, customerId: ID, lastHash}
 	    break
     default:
 	    break		

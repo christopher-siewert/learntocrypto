@@ -29,32 +29,45 @@ let server = net.createServer(function (socket) {
         console.log('Bank received:', msg)
         
         // First check that the sig matches
-        if (verifySig(msg.signature,JSON.stringify(msg.entry),msg.entry.customerId)){
+        // If the check fails then return and exit function early
+        if (!verifySig(msg.signature,JSON.stringify(msg.entry),msg.entry.customerId)){
+            return
+        }    
+        
+        // Then prevent replays
+        // Find the hash of the last transaction by user
+        var lastHash = findLastHash(msg.entry.customerId)
+        
+        // If last hash in log and submitted hash are dif exit early
+        if (lastHash != msg.entry.lastHash) {
+            return
+        }
             
-            // Then act based on command
-            switch (msg.entry.cmd) {
-                case 'balance':
-                    socket.write({
-                        cmd: 'balance', 
-                        balance: getBalance(msg.entry.customerId)
-                    })
-                    break
-                case 'deposit':
-                    appendToLog(msg.entry)
-                    socket.write(msg.entry)
-                    break
-                case 'withdraw':
-                    if (getBalance(msg.entry.customerId) >= msg.entry.amount) {
-                        appendToLog(msg.entry)
-                        socket.write(msg.entry)
-                    } else {
-                        socket.write("Insufficient funds.")
-                    }
-                    break
-                default:
-                    break
-            }
-        }  
+        // Then act based on command
+        switch (msg.entry.cmd) {
+            case 'balance':
+                socket.write([{
+                    cmd: 'balance', 
+                    balance: getBalance(msg.entry.customerId)
+                }, lastHash])
+                break
+            case 'deposit':
+                // appendToLog returns the hash of the entry it just wrote
+                let msgHash = appendToLog(msg.entry)
+                socket.write([msg.entry, msgHash])
+                break
+            case 'withdraw':
+                if (getBalance(msg.entry.customerId) >= msg.entry.amount) {
+                    let msgHash = appendToLog(msg.entry)
+                    socket.write([msg.entry, msgHash])
+                } else {
+                    socket.write(["Insufficient funds.", lastHash])
+                }
+                break
+            default:
+                break
+        }
+        
         // Takes current log variable, encrypts and writes to file
         encryptAndWriteLog()
     })
@@ -62,12 +75,23 @@ let server = net.createServer(function (socket) {
 
 server.listen(3876)
 
-// Returns the hash of an input in hex
+// Returns the hash of a string in hex
 function hashToHex(string) {
     let buf1 = Buffer.from(string)
     let buf2 = Buffer.alloc(sodium.crypto_generichash_BYTES)
     sodium.crypto_generichash(buf2, buf1)
     return buf2.toString('hex')
+}
+
+// Loops though the log and returns the last hash of an ID
+function findLastHash(ID) {
+    let lastHash = genesisHash
+    for (let i = 0; i < log.length; i++) {
+        if (ID == log[i].value.customerId) {
+            lastHash = log[i].hash
+        }
+    }
+    return lastHash
 }
 
 // Loops through transaction log and totals up balance for one ID
@@ -107,6 +131,7 @@ function appendToLog(entry) {
         hash: currentHash,
         signature: signature.toString('hex')
     })
+    return currentHash
 }
 
 // Returns true if hash chain is unbroken and all sigs match

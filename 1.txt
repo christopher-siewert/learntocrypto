@@ -1,4 +1,0 @@
-{
-  "secretKey": "dbc9de5db04874bfc4da1cb7691ef97d5aebc355172a2ceb168a3392a8688b70c6d3cee5a71be8b1c7d0e54430519d1c003fb31c7e1218ae8b323fc9b2a79f1b",
-  "publicKey": "c6d3cee5a71be8b1c7d0e54430519d1c003fb31c7e1218ae8b323fc9b2a79f1b"
-}
